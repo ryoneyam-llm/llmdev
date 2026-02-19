@@ -1,0 +1,17 @@
+/* ヘッダーのスタイル */
+.header {
+    color: #ffff;
+    background-color: #84ceef;
+}
+
+/* h1のスタイル */
+h1 {
+    color: #e47292;
+    text-align: center;
+}
+
+/* フッターのスタイル */
+.footer {
+    color: #ffff;
+    background-color: #040000;
+}
