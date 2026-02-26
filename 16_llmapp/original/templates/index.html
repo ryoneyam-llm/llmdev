@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}サニー - AIチャットボット{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <header class="chat-header">
+        <h1>🌞 サニー - フレンドリーなAIアシスタント</h1>
+        <p class="subtitle">何でも気軽に聞いてくださいね！</p>
+    </header>
+
+    <div class="chat-messages" id="chatMessages">
+        <div class="message bot-message">
+            <div class="message-content">
+                <p>こんにちは！私はサニーです 🌟</p>
+                <p>あなたの質問や相談に、明るく丁寧にお答えします。何でも聞いてくださいね！</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-input-container">
+        <div class="input-wrapper">
+            <textarea
+                id="userInput"
+                placeholder="メッセージを入力..."
+                rows="1"
+                onkeypress="handleKeyPress(event)"
+            ></textarea>
+            <button id="sendButton" onclick="sendMessage()">送信</button>
+        </div>
+        <button id="clearButton" onclick="clearChat()">会話をクリア</button>
+    </div>
+</div>
+
+<script>
+    // セッションIDを生成（ページロード時に1回だけ）
+    const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+    function handleKeyPress(event) {
+        // Shift+Enterで改行、Enterのみで送信
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+        }
+    }
+
+    function addMessage(content, isUser = false) {
+        const messagesDiv = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.innerHTML = `<p>${content.replace(/\n/g, '<br>')}</p>`;
+
+        messageDiv.appendChild(contentDiv);
+        messagesDiv.appendChild(messageDiv);
+
+        // スクロールを最下部に
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function showTypingIndicator() {
+        const messagesDiv = document.getElementById('chatMessages');
+        const typingDiv = document.createElement('div');
+        typingDiv.id = 'typingIndicator';
+        typingDiv.className = 'message bot-message';
+        typingDiv.innerHTML = '<div class="message-content"><p class="typing">サニーが入力中...</p></div>';
+        messagesDiv.appendChild(typingDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        const typingDiv = document.getElementById('typingIndicator');
+        if (typingDiv) {
+            typingDiv.remove();
+        }
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('userInput');
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        // ユーザーメッセージを表示
+        addMessage(message, true);
+
+        // 入力欄をクリア
+        input.value = '';
+        input.style.height = 'auto';
+
+        // 送信ボタンを無効化
+        const sendButton = document.getElementById('sendButton');
+        sendButton.disabled = true;
+
+        // タイピング表示
+        showTypingIndicator();
+
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    session_id: sessionId
+                }),
+            });
+
+            const data = await response.json();
+
+            removeTypingIndicator();
+
+            if (data.status === 'success') {
+                addMessage(data.response, false);
+            } else {
+                addMessage('エラー: ' + (data.error || '不明なエラーが発生しました'), false);
+            }
+        } catch (error) {
+            removeTypingIndicator();
+            addMessage('通信エラーが発生しました: ' + error.message, false);
+        } finally {
+            sendButton.disabled = false;
+            input.focus();
+        }
+    }
+
+    async function clearChat() {
+        if (!confirm('会話履歴をクリアしますか？')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: sessionId
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // メッセージをクリア
+                const messagesDiv = document.getElementById('chatMessages');
+                messagesDiv.innerHTML = `
+                    <div class="message bot-message">
+                        <div class="message-content">
+                            <p>会話履歴をクリアしました 🌟</p>
+                            <p>また新しい会話を始めましょう！何でも聞いてくださいね。</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                alert('エラー: ' + (data.error || 'クリアに失敗しました'));
+            }
+        } catch (error) {
+            alert('通信エラーが発生しました: ' + error.message);
+        }
+    }
+
+    // テキストエリアの自動リサイズ
+    document.getElementById('userInput').addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+</script>
+{% endblock %}
